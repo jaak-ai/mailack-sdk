@@ -1,0 +1,24 @@
+{
+  "name": "@mailack/sdk",
+  "version": "0.1.0",
+  "description": "Official Node.js / TypeScript SDK for the mailack certified email API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "example": "tsx examples/send.ts"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}

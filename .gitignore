@@ -1,0 +1,25 @@
+# Go
+/go/bin/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+
+# Rust
+target/
+
+# Java
+java/target/
+
+# .NET
+bin/
+obj/
+
+# Sistema
+.DS_Store
