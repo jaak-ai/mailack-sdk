@@ -70,4 +70,4 @@ y el OpenAPI no coinciden, manda el OpenAPI y es un fallo del SDK: abre una inci
 
 ## Licencia
 
-Pendiente de asignar.
+MIT. Ver [`LICENSE`](LICENSE).
