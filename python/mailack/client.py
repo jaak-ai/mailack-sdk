@@ -85,9 +85,16 @@ class Client:
         headers: Optional[dict[str, str]] = None,
         template_id: str = "",
         variables: Optional[dict[str, str]] = None,
+        certified: Optional[bool] = None,
     ) -> tuple[dict[str, Any], bool]:
-        """POST /v1/messages. Returns (message, replay)."""
+        """POST /v1/messages. Returns (message, replay).
+
+        certified: omit (None) to use the account default (default_certified);
+        plain messages (certified=false) cannot be sealed.
+        """
         body: dict[str, Any] = {"from": from_, "to": to}
+        if certified is not None:
+            body["certified"] = certified
         if template_id:
             body["template_id"] = template_id
             if variables:
@@ -107,13 +114,44 @@ class Client:
         return payload, replay
 
     def send_batch(self, messages: list[dict[str, Any]]) -> dict[str, Any]:
-        """POST /v1/messages/batch (max 100). Each item needs idempotency_key."""
+        """POST /v1/messages/batch (max 100). Each item needs idempotency_key.
+
+        Each item may carry an optional "certified" boolean: omit it to use the
+        account default (default_certified); plain messages (certified=false)
+        cannot be sealed.
+        """
         _, _, payload = self._request("POST", "/v1/messages/batch", body={"messages": messages})
         return payload
 
     def get_message(self, message_id: str) -> dict[str, Any]:
         _, _, payload = self._request("GET", f"/v1/messages/{message_id}")
         return payload.get("message") or payload
+
+    def seal_message(self, message_id: str) -> dict[str, Any]:
+        """POST /v1/messages/{id}/seal → seal receipt (canonical_hash,
+        merkle_root, certificate_id, sealed_at, …). 422 not_certified on plain
+        messages."""
+        _, _, payload = self._request("POST", f"/v1/messages/{message_id}/seal", body={})
+        return payload
+
+    def message_evidence(self, message_id: str) -> dict[str, Any]:
+        """GET /v1/messages/{id}/evidence → evidence record (canonical_hash,
+        mime_sha256, merkle_root, leaf_index, …)."""
+        _, _, payload = self._request("GET", f"/v1/messages/{message_id}/evidence")
+        return payload
+
+    def proof_bundle(self, message_id: str) -> dict[str, Any]:
+        """GET /v1/messages/{id}/proof-bundle → raw proof bundle document
+        (version, proof_path, seal, …). 422 missing_proof_data until sealed."""
+        _, _, payload = self._request("GET", f"/v1/messages/{message_id}/proof-bundle")
+        return payload
+
+    def verify_message(self, message_id: str) -> dict[str, Any]:
+        """POST /v1/verify → {valid, merkle_root, certificate_id, sealed_at}.
+        404 not_found if the message does not exist; 422 missing_proof_data
+        until it is sealed."""
+        _, _, payload = self._request("POST", "/v1/verify", body={"message_id": message_id})
+        return payload
 
     def rates(self, days: int = 14) -> dict[str, Any]:
         _, _, payload = self._request("GET", "/v1/rates", query={"days": str(days)})

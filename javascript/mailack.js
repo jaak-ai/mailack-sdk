@@ -120,7 +120,11 @@ export class Client {
    *   headers?: Record<string, string>,
    *   template_id?: string,
    *   variables?: Record<string, string>,
+   *   certified?: boolean,
    * }} req
+   *
+   * `certified`: omit to use the account default (default_certified);
+   * plain messages (certified=false) cannot be sealed.
    */
   async send(idempotencyKey, req) {
     const { headers, data } = await this.#request('POST', '/v1/messages', {
@@ -135,6 +139,10 @@ export class Client {
 
   /**
    * POST /v1/messages/batch (max 100)
+   * Each item accepts an optional `certified` flag: omit to use the account
+   * default (default_certified); plain messages (certified=false) cannot be
+   * sealed. Undefined fields are dropped by JSON serialization, so leaving
+   * `certified` out keeps the account default.
    * @param {Array<Record<string, unknown>>} messages
    */
   async sendBatch(messages) {
@@ -148,6 +156,87 @@ export class Client {
   async getMessage(id) {
     const { data } = await this.#request('GET', `/v1/messages/${id}`);
     return data?.message ?? data;
+  }
+
+  /**
+   * POST /v1/messages/{id}/seal
+   * Seals a certified message into the Merkle tree. Sealing a plain message
+   * (certified=false) fails with 422 `not_certified`.
+   * @param {string} id
+   * @returns {Promise<{
+   *   message_id: string,
+   *   batch_id: string,
+   *   seal_type: string,
+   *   canonical_hash: string,
+   *   merkle_root: string,
+   *   certificate_id: string,
+   *   serial_number: string,
+   *   policy_oid: string,
+   *   algorithm_oid: string,
+   *   sealed_at: string,
+   * }>}
+   */
+  async sealMessage(id) {
+    const { data } = await this.#request('POST', `/v1/messages/${id}/seal`, {
+      body: {},
+    });
+    return data;
+  }
+
+  /**
+   * GET /v1/messages/{id}/evidence
+   * @param {string} id
+   * @returns {Promise<{
+   *   message_id: string,
+   *   canonical_hash: string,
+   *   mime_sha256: string,
+   *   message_id_header: string,
+   *   date_header: string,
+   *   batch_id: string,
+   *   merkle_root: string,
+   *   sealed_at: string,
+   *   certificate_id: string,
+   *   leaf_index: number,
+   * }>}
+   */
+  async getEvidence(id) {
+    const { data } = await this.#request('GET', `/v1/messages/${id}/evidence`);
+    return data;
+  }
+
+  /**
+   * GET /v1/messages/{id}/proof-bundle
+   * Returns the raw proof bundle JSON document ({version, message_id,
+   * canonical_hash, leaf_index, proof_path, merkle_root, seal: {...}}).
+   * Fails with 422 `missing_proof_data` if the message is not sealed yet.
+   * @param {string} id
+   * @returns {Promise<Record<string, unknown>>}
+   */
+  async getProofBundle(id) {
+    const { data } = await this.#request(
+      'GET',
+      `/v1/messages/${id}/proof-bundle`,
+    );
+    return data;
+  }
+
+  /**
+   * POST /v1/verify
+   * Verifies a message's Merkle proof. Fails with 404 `not_found` when the
+   * message does not exist, or 422 `missing_proof_data` when it is not sealed.
+   * @param {string} messageId
+   * @returns {Promise<{
+   *   valid: boolean,
+   *   merkle_root: string,
+   *   certificate_id: string,
+   *   sealed_at: string,
+   * }>}
+   */
+  async verify(messageId) {
+    const { data } = await this.#request('POST', '/v1/verify', {
+      body: { message_id: messageId },
+    });
+    return data;
   }
 
   /** @param {number} [days] */

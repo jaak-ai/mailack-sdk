@@ -73,6 +73,45 @@ impl Client {
         Ok(wrap.message)
     }
 
+    /// POST /v1/messages/{id}/seal — 422 `not_certified` on plain messages.
+    pub async fn seal_message(&self, id: &str) -> Result<SealResult> {
+        let path = format!("/v1/messages/{id}/seal");
+        self.get_json(Method::POST, &path, Some(&serde_json::json!({})), None, None)
+            .await
+    }
+
+    /// GET /v1/messages/{id}/evidence
+    pub async fn evidence(&self, id: &str) -> Result<Evidence> {
+        let path = format!("/v1/messages/{id}/evidence");
+        self.get_json(Method::GET, &path, None::<&()>, None, None)
+            .await
+    }
+
+    /// GET /v1/messages/{id}/proof-bundle — raw JSON document.
+    /// 422 `missing_proof_data` while the message is not sealed.
+    pub async fn proof_bundle(&self, id: &str) -> Result<serde_json::Value> {
+        let path = format!("/v1/messages/{id}/proof-bundle");
+        self.get_json(Method::GET, &path, None::<&()>, None, None)
+            .await
+    }
+
+    /// POST /v1/verify — 404 `not_found` for unknown ids, 422
+    /// `missing_proof_data` while the message is not sealed.
+    pub async fn verify(&self, message_id: &str) -> Result<VerifyResult> {
+        #[derive(Serialize)]
+        struct Body<'a> {
+            message_id: &'a str,
+        }
+        self.get_json(
+            Method::POST,
+            "/v1/verify",
+            Some(&Body { message_id }),
+            None,
+            None,
+        )
+        .await
+    }
+
     /// GET /v1/rates?days=
     pub async fn rates(&self, days: u32) -> Result<Rates> {
         let q = [("days", days.to_string())];

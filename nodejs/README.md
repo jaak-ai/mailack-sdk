@@ -62,6 +62,24 @@ await client.send("welcome-9", {
 });
 ```
 
+### Sello y verificación
+
+```ts
+// `certified` es opcional en send/sendBatch; si se omite aplica el default de la cuenta.
+const { message } = await client.send("order-43", {
+  from: "noreply@acme.mx",
+  to: "cliente@example.com",
+  subject: "Contrato",
+  text: "…",
+  certified: true,
+});
+
+const seal = await client.sealMessage(message.id as string); // POST /v1/messages/{id}/seal
+const evidence = await client.getEvidence(message.id as string); // GET /v1/messages/{id}/evidence
+const bundle = await client.getProofBundle(message.id as string); // GET /v1/messages/{id}/proof-bundle (JSON crudo)
+const { valid } = await client.verify(message.id as string); // POST /v1/verify
+```
+
 ### Dominios, webhooks, rates
 
 ```ts

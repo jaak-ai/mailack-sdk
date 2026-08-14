@@ -23,10 +23,22 @@ try {
     to: process.env.MAILACK_TO || 'you@example.com',
     subject: 'mailack JavaScript SDK example',
     text: 'Hello from the JavaScript SDK.',
+    // Omit `certified` to use the account default; plain messages
+    // (certified=false) cannot be sealed.
+    certified: true,
   });
   console.log(
-    `id=${message.id} state=${message.state} hash=${message.canonical_hash} replay=${replay}`,
+    `id=${message.id} state=${message.state} hash=${message.canonical_hash} certified=${message.certified} replay=${replay}`,
   );
+
+  const seal = await client.sealMessage(message.id);
+  console.log(`sealed: batch=${seal.batch_id} root=${seal.merkle_root}`);
+
+  const evidence = await client.getEvidence(message.id);
+  console.log(`evidence: leaf=${evidence.leaf_index} mime=${evidence.mime_sha256}`);
+
+  const result = await client.verify(message.id);
+  console.log(`verify: valid=${result.valid}`);
 } catch (e) {
   if (e instanceof APIError) {
     console.error(`${e.code}: ${e.message}`);

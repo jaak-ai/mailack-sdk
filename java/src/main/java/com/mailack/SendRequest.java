@@ -12,6 +12,11 @@ public final class SendRequest {
   public Map<String, String> headers;
   public String template_id;
   public Map<String, String> variables;
+  /**
+   * Optional certified flag. Omit (leave null) to use the account default
+   * (default_certified); plain messages (certified=false) cannot be sealed.
+   */
+  public Boolean certified;
 
   public static SendRequest text(String from, String to, String subject, String text) {
     SendRequest r = new SendRequest();

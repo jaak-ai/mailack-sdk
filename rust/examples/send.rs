@@ -1,4 +1,4 @@
-//! Example: send one certified message.
+//! Example: send one certified message, then seal → evidence → verify.
 //!
 //! ```bash
 //! export MAILACK_API_URL=http://localhost:8080
@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 to: env::var("MAILACK_TO").unwrap_or_else(|_| "you@example.com".into()),
                 subject: Some("mailack Rust SDK example".into()),
                 text: Some("Hello from the Rust SDK.".into()),
+                certified: Some(true),
                 ..Default::default()
             },
         )
@@ -39,9 +40,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         })?;
 
     println!(
-        "id={} state={} hash={} replay={replay}",
-        msg.id, msg.state, msg.canonical_hash
+        "id={} state={} hash={} certified={} replay={replay}",
+        msg.id, msg.state, msg.canonical_hash, msg.certified
     );
+
+    if msg.certified {
+        let seal = client.seal_message(&msg.id).await?;
+        println!(
+            "sealed: type={} root={} cert={}",
+            seal.seal_type, seal.merkle_root, seal.certificate_id
+        );
+
+        let ev = client.evidence(&msg.id).await?;
+        println!(
+            "evidence: mime_sha256={} leaf_index={}",
+            ev.mime_sha256, ev.leaf_index
+        );
+
+        let res = client.verify(&msg.id).await?;
+        println!("verify: valid={}", res.valid);
+    }
 
     if let Ok(rates) = client.rates(7).await {
         println!(

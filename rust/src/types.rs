@@ -18,6 +18,10 @@ pub struct SendRequest {
     pub template_id: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub variables: Option<HashMap<String, String>>,
+    /// Omit to use the account default (default_certified); plain messages
+    /// (certified=false) cannot be sealed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certified: Option<bool>,
 }
 
 /// Certified message returned by the API.
@@ -40,6 +44,10 @@ pub struct Message {
     pub state: String,
     #[serde(default)]
     pub batch_id: Option<String>,
+    /// True when the message enters the Merkle tree; plain messages deliver
+    /// normally but cannot be sealed.
+    #[serde(default)]
+    pub certified: bool,
 }
 
 /// One entry of `SendBatch`.
@@ -53,6 +61,10 @@ pub struct BatchItem {
     pub text: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html: Option<String>,
+    /// Omit to use the account default (default_certified); plain messages
+    /// (certified=false) cannot be sealed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub certified: Option<bool>,
 }
 
 /// Per-item result of batch ingest.
@@ -73,6 +85,67 @@ pub struct BatchItemResult {
 pub struct BatchItemError {
     pub code: String,
     pub message: String,
+}
+
+/// Response of `POST /v1/messages/{id}/seal` (201).
+#[derive(Debug, Clone, Deserialize)]
+pub struct SealResult {
+    pub message_id: String,
+    #[serde(default)]
+    pub batch_id: Option<String>,
+    #[serde(default)]
+    pub seal_type: String,
+    #[serde(default)]
+    pub canonical_hash: String,
+    #[serde(default)]
+    pub merkle_root: String,
+    #[serde(default)]
+    pub certificate_id: String,
+    #[serde(default)]
+    pub serial_number: String,
+    #[serde(default)]
+    pub policy_oid: String,
+    #[serde(default)]
+    pub algorithm_oid: String,
+    #[serde(default)]
+    pub sealed_at: String,
+}
+
+/// Cryptographic evidence of a sealed message (`GET /v1/messages/{id}/evidence`).
+#[derive(Debug, Clone, Deserialize)]
+pub struct Evidence {
+    pub message_id: String,
+    #[serde(default)]
+    pub canonical_hash: String,
+    #[serde(default)]
+    pub mime_sha256: String,
+    #[serde(default)]
+    pub message_id_header: String,
+    #[serde(default)]
+    pub date_header: String,
+    #[serde(default)]
+    pub batch_id: Option<String>,
+    #[serde(default)]
+    pub merkle_root: String,
+    #[serde(default)]
+    pub sealed_at: String,
+    #[serde(default)]
+    pub certificate_id: String,
+    #[serde(default)]
+    pub leaf_index: i64,
+}
+
+/// Response of `POST /v1/verify`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct VerifyResult {
+    #[serde(default)]
+    pub valid: bool,
+    #[serde(default)]
+    pub merkle_root: String,
+    #[serde(default)]
+    pub certificate_id: String,
+    #[serde(default)]
+    pub sealed_at: String,
 }
 
 /// Response of `POST /v1/messages/batch`.

@@ -76,6 +76,7 @@ let batch = client
         subject: "Hi".into(),
         text: Some("…".into()),
         html: None,
+        certified: None, // omitido: aplica el default de la cuenta (default_certified)
     }])
     .await?;
 println!("created={} failed={}", batch.created, batch.failed);
@@ -100,6 +101,25 @@ let (hook, secret) = client
 let rates = client.rates(14).await?;
 println!("delivery={:.1}% bounce={:.1}%", rates.delivery_rate, rates.bounce_rate);
 ```
+
+### Sello, evidencia y verificación
+
+```rust
+// Sellar un mensaje certificado (422 not_certified si certified=false).
+let seal = client.seal_message(&msg.id).await?;
+
+// Evidencia criptográfica del mensaje (hashes, leaf_index, certificado).
+let ev = client.evidence(&msg.id).await?;
+
+// Bundle de prueba Merkle completo como JSON crudo (422 missing_proof_data si no está sellado).
+let bundle = client.proof_bundle(&msg.id).await?;
+
+// Verificación por message_id (404 not_found si no existe).
+let res = client.verify(&msg.id).await?;
+println!("valid={}", res.valid);
+```
+
+`SendRequest.certified` y `BatchItem.certified` son `Option<bool>`: omítelos para usar el default de la cuenta (`default_certified`); los mensajes plain (`certified=false`) se entregan igual pero no entran al árbol Merkle y no se pueden sellar.
 
 ## Ejemplo
 

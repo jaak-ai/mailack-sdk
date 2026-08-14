@@ -39,6 +39,11 @@ npm install "https://github.com/jaak-ai/mailack-sdk#main:nodejs"
 Todos los SDKs hablan el mismo contrato:
 
 - Envío con `Idempotency-Key`, y envío por lotes de hasta 100
+- Flag `certified` por mensaje: certificado (por defecto de la cuenta) u ordinario
+  (`certified: false`; los ordinarios no se sellan — ver `not_certified` abajo)
+- Sellado bajo demanda (`POST /v1/messages/{id}/seal`)
+- Evidencia en línea: `GET /v1/messages/{id}/evidence` y `GET …/proof-bundle`
+- Verificación online de la prueba Merkle (`POST /v1/verify`)
 - Plantillas con variables (`template_id` + `variables`)
 - Dominios de envío: alta y verificación por DNS
 - Webhooks del ciclo de vida del mensaje
@@ -50,11 +55,13 @@ Autenticación por API key Bearer (`mlk_…`).
 
 | Código | Significado |
 |---|---|
-| `quota_exceeded` | Se agotó la cuota mensual de la cuenta |
+| `quota_exceeded` | Se agotó la cuota mensual de la cuenta (bolsas independientes: certificados y ordinarios) |
 | `recipient_suppressed` | El destinatario está en la lista de supresión |
 | `domain_not_verified` | El `From` no pertenece a un dominio verificado |
 | `domain_taken` / `domain_exists` | El dominio ya está registrado, por otra cuenta o por la tuya |
 | `template_not_found` / `template_render_error` | Problema con la plantilla |
+| `not_certified` | Se intentó sellar un mensaje ordinario (`certified: false`) |
+| `missing_proof_data` | El mensaje aún no está sellado en un batch Merkle |
 
 ## Versiones
 

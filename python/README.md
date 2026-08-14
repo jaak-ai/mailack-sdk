@@ -76,6 +76,20 @@ rates = client.rates(days=14)
 print(rates["delivery_rate"], rates["bounce_rate"])
 ```
 
+### Sellado y verificación
+
+```python
+msg, _ = client.send("cert-1", from_="a@acme.mx", to="b@x.com",
+                     subject="Hi", text="…", certified=True)  # None = default de la cuenta
+
+seal = client.seal_message(msg["id"])            # POST /v1/messages/{id}/seal → recibo de sellado
+evidence = client.message_evidence(msg["id"])    # GET  /v1/messages/{id}/evidence → registro de evidencia
+bundle = client.proof_bundle(msg["id"])          # GET  /v1/messages/{id}/proof-bundle → documento crudo
+result = client.verify_message(msg["id"])        # POST /v1/verify → {"valid": True, …}
+```
+
+Los mensajes plain (`certified=False`) entregan igual pero no entran al árbol Merkle y no se pueden sellar (`422 not_certified`).
+
 ## Autenticación
 
 API key Bearer (`messages:send`, `evidence:read`, …). El tenant se resuelve en el servidor.

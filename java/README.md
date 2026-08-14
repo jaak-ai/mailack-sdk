@@ -49,8 +49,27 @@ SendResult r = client.send("welcome-9", SendRequest.template(
 ```java
 JsonObject batch = client.sendBatch(List.of(
     Map.of("idempotency_key", "a1", "from", "a@acme.mx", "to", "1@x.com",
-           "subject", "Hi", "text", "…")));
+           "subject", "Hi", "text", "…", "certified", true)));
 ```
+
+Cada ítem admite `"certified"` opcional; omítelo para aplicar el default de la cuenta
+(`default_certified`). Los mensajes plain (`certified=false`) entregan igual pero no se pueden sellar.
+
+### Sellado, evidencia y verificación
+
+```java
+SendRequest req = SendRequest.text("noreply@acme.mx", "cliente@example.com", "Recibo", "…");
+req.certified = true;                       // omite para usar el default de la cuenta
+SendResult r = client.send("order-42", req);
+
+SealResult seal = client.sealMessage(r.id());           // POST /v1/messages/{id}/seal
+MessageEvidence ev = client.getMessageEvidence(r.id()); // GET  /v1/messages/{id}/evidence
+JsonObject bundle = client.getProofBundle(r.id());      // GET  /v1/messages/{id}/proof-bundle (JSON crudo)
+VerifyResult v = client.verifyMessage(r.id());          // POST /v1/verify → v.valid()
+```
+
+Errores: sellar un plain → 422 `not_certified`; verificar o pedir el bundle antes del sellado →
+422 `missing_proof_data`; verificar un id inexistente → 404 `not_found`.
 
 ### Dominios / webhooks / rates
 

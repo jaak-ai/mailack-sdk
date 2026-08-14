@@ -33,8 +33,9 @@ try {
     to: 'cliente@example.com',
     subject: 'Recibo',
     text: 'Gracias por su compra.',
+    certified: true, // omitir para usar el default de la cuenta
   });
-  console.log(message.id, message.state, replay);
+  console.log(message.id, message.state, message.certified, replay);
 } catch (e) {
   if (e instanceof APIError && e.is('quota_exceeded')) {
     // cuota mensual
@@ -82,6 +83,22 @@ const { webhook, secret } = await client.createWebhook(
 
 const rates = await client.rates(14);
 console.log(rates.delivery_rate, rates.bounce_rate);
+```
+
+### Sellado, evidencia y verificación
+
+```js
+// Sellar un mensaje certificado en el árbol Merkle (plain → 422 not_certified)
+const seal = await client.sealMessage(message.id);
+
+// Evidencia de entrega/sello del mensaje
+const evidence = await client.getEvidence(message.id);
+
+// Bundle de prueba completo (JSON crudo; 422 missing_proof_data si no está sellado)
+const bundle = await client.getProofBundle(message.id);
+
+// Verificación del proof por message_id (404 not_found / 422 missing_proof_data)
+const { valid } = await client.verify(message.id);
 ```
 
 ## Ejemplo

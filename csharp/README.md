@@ -69,6 +69,23 @@ var hook = await client.CreateWebhookAsync(
 var rates = await client.RatesAsync(14);
 ```
 
+### Sellado y verificación (Merkle)
+
+```csharp
+// Envío certificado explícito (omite `Certified` para usar el default de la cuenta;
+// los mensajes plain (certified=false) no se pueden sellar).
+var result = await client.SendAsync("order-43", new SendRequest
+{
+    From = "noreply@acme.mx", To = "cliente@example.com",
+    Subject = "Recibo", Text = "Gracias.", Certified = true,
+});
+
+var seal = await client.SealMessageAsync(result.Id!);          // POST /v1/messages/{id}/seal
+var evidence = await client.GetMessageEvidenceAsync(result.Id!); // GET /v1/messages/{id}/evidence
+var bundle = await client.GetProofBundleAsync(result.Id!);     // GET /v1/messages/{id}/proof-bundle (JSON crudo)
+var verify = await client.VerifyAsync(result.Id!);             // POST /v1/verify → VerifyResult { Valid, … }
+```
+
 ## Ejemplo
 
 ```bash

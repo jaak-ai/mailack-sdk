@@ -48,11 +48,53 @@ public final class Client {
     return new SendResult(r.json.getAsJsonObject(), replay);
   }
 
-  /** POST /v1/messages/batch */
+  /**
+   * POST /v1/messages/batch
+   *
+   * <p>Each item in {@code messages} also accepts an optional {@code "certified"} entry
+   * (true/false). Omit it to use the account default (default_certified); plain messages
+   * (certified=false) cannot be sealed.
+   */
   public JsonObject sendBatch(List<Map<String, Object>> messages) throws APIError, IOException {
     JsonObject body = new JsonObject();
     body.add("messages", gson.toJsonTree(messages));
     return request("POST", "/v1/messages/batch", body, null, null).json.getAsJsonObject();
+  }
+
+  /**
+   * POST /v1/messages/{id}/seal — seals a certified message into a Merkle batch.
+   * Fails with 422 not_certified on plain messages (certified=false).
+   */
+  public SealResult sealMessage(String id) throws APIError, IOException {
+    JsonObject root =
+        request("POST", "/v1/messages/" + id + "/seal", Map.of(), null, null).json.getAsJsonObject();
+    return new SealResult(root);
+  }
+
+  /** GET /v1/messages/{id}/evidence — cryptographic evidence of a message. */
+  public MessageEvidence getMessageEvidence(String id) throws APIError, IOException {
+    JsonObject root =
+        request("GET", "/v1/messages/" + id + "/evidence", null, null, null).json.getAsJsonObject();
+    return new MessageEvidence(root);
+  }
+
+  /**
+   * GET /v1/messages/{id}/proof-bundle — raw Merkle proof bundle (large JSON document).
+   * Fails with 422 missing_proof_data while the message is not sealed yet.
+   */
+  public JsonObject getProofBundle(String id) throws APIError, IOException {
+    return request("GET", "/v1/messages/" + id + "/proof-bundle", null, null, null)
+        .json.getAsJsonObject();
+  }
+
+  /**
+   * POST /v1/verify — verifies the Merkle proof of a message by id.
+   * Fails with 404 not_found if unknown, 422 missing_proof_data if not sealed yet.
+   */
+  public VerifyResult verifyMessage(String messageId) throws APIError, IOException {
+    JsonObject root = request("POST", "/v1/verify", Map.of("message_id", messageId), null, null)
+        .json.getAsJsonObject();
+    return new VerifyResult(root);
   }
 
   public JsonObject getMessage(String id) throws APIError, IOException {

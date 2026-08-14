@@ -19,4 +19,9 @@ public final class SendResult {
   public String state() {
     return message.has("state") ? message.get("state").getAsString() : null;
   }
+
+  /** Whether the message was sent as certified (false for plain messages). */
+  public boolean certified() {
+    return message.has("certified") && message.get("certified").getAsBoolean();
+  }
 }

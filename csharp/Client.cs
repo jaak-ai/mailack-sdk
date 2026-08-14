@@ -76,6 +76,49 @@ public sealed class Client : IDisposable
         return await ReadObjectAsync(resp, ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Seals a message into the current Merkle batch (POST /v1/messages/{id}/seal).
+    /// Throws <see cref="ApiError"/> with code "not_certified" (HTTP 422) for plain messages.
+    /// </summary>
+    public async Task<Dictionary<string, object?>> SealMessageAsync(string id, CancellationToken ct = default)
+    {
+        using var resp = await _http.PostAsync($"v1/messages/{id}/seal", JsonContent(new { }), ct).ConfigureAwait(false);
+        return await ReadObjectAsync(resp, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the cryptographic evidence of a sealed message (GET /v1/messages/{id}/evidence).
+    /// </summary>
+    public async Task<Dictionary<string, object?>> GetMessageEvidenceAsync(string id, CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync($"v1/messages/{id}/evidence", ct).ConfigureAwait(false);
+        return await ReadObjectAsync(resp, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns the full Merkle proof bundle as a raw JSON document (GET /v1/messages/{id}/proof-bundle).
+    /// Throws <see cref="ApiError"/> with code "missing_proof_data" (HTTP 422) if the message is not sealed yet.
+    /// </summary>
+    public async Task<Dictionary<string, object?>> GetProofBundleAsync(string id, CancellationToken ct = default)
+    {
+        using var resp = await _http.GetAsync($"v1/messages/{id}/proof-bundle", ct).ConfigureAwait(false);
+        return await ReadObjectAsync(resp, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Verifies a sealed message against its Merkle proof (POST /v1/verify).
+    /// Throws <see cref="ApiError"/> with code "not_found" (HTTP 404) if the message does not exist,
+    /// or "missing_proof_data" (HTTP 422) if it is not sealed yet.
+    /// </summary>
+    public async Task<VerifyResult> VerifyAsync(string messageId, CancellationToken ct = default)
+    {
+        using var resp = await _http.PostAsync("v1/verify",
+            JsonContent(new { message_id = messageId }), ct).ConfigureAwait(false);
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
+        var raw = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+        return JsonSerializer.Deserialize<VerifyResult>(raw, JsonOpts) ?? new VerifyResult();
+    }
+
     public async Task<List<Dictionary<string, object?>>> ListDomainsAsync(CancellationToken ct = default)
     {
         using var resp = await _http.GetAsync("v1/domains", ct).ConfigureAwait(false);

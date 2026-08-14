@@ -37,6 +37,11 @@ export type SendRequest = {
   headers?: Record<string, string>;
   template_id?: string;
   variables?: Record<string, string>;
+  /**
+   * Omit to use the account default (default_certified); plain messages
+   * (certified=false) cannot be sealed.
+   */
+  certified?: boolean;
 };
 
 export type BatchItem = {
@@ -47,6 +52,47 @@ export type BatchItem = {
   text?: string;
   html?: string;
   headers?: Record<string, string>;
+  /**
+   * Omit to use the account default (default_certified); plain messages
+   * (certified=false) cannot be sealed.
+   */
+  certified?: boolean;
+};
+
+/** POST /v1/messages/{id}/seal response. */
+export type SealResult = {
+  message_id: string;
+  batch_id: string;
+  seal_type: string;
+  canonical_hash: string;
+  merkle_root: string;
+  certificate_id: string;
+  serial_number: string;
+  policy_oid: string;
+  algorithm_oid: string;
+  sealed_at: string;
+};
+
+/** GET /v1/messages/{id}/evidence response. */
+export type MessageEvidence = {
+  message_id: string;
+  canonical_hash: string;
+  mime_sha256: string;
+  message_id_header: string;
+  date_header: string;
+  batch_id: string;
+  merkle_root: string;
+  sealed_at: string;
+  certificate_id: string;
+  leaf_index: number;
+};
+
+/** POST /v1/verify response. */
+export type VerifyResult = {
+  valid: boolean;
+  merkle_root?: string;
+  certificate_id?: string;
+  sealed_at?: string;
 };
 
 export type ClientOptions = {
@@ -148,6 +194,47 @@ export class Client {
       `/v1/messages/${id}`
     );
     return data.message ?? (data as Record<string, unknown>);
+  }
+
+  /**
+   * POST /v1/messages/{id}/seal — seal a certified message into the Merkle tree.
+   * Throws APIError with code "not_certified" (422) for plain messages.
+   */
+  async sealMessage(id: string): Promise<SealResult> {
+    const { data } = await this.request<SealResult>("POST", `/v1/messages/${id}/seal`, {
+      body: {},
+    });
+    return data;
+  }
+
+  /** GET /v1/messages/{id}/evidence — evidence fields of a sealed message. */
+  async getEvidence(id: string): Promise<MessageEvidence> {
+    const { data } = await this.request<MessageEvidence>("GET", `/v1/messages/${id}/evidence`);
+    return data;
+  }
+
+  /**
+   * GET /v1/messages/{id}/proof-bundle — full proof bundle as raw JSON.
+   * Throws APIError with code "missing_proof_data" (422) if the message is not sealed yet.
+   */
+  async getProofBundle(id: string): Promise<Record<string, unknown>> {
+    const { data } = await this.request<Record<string, unknown>>(
+      "GET",
+      `/v1/messages/${id}/proof-bundle`
+    );
+    return data;
+  }
+
+  /**
+   * POST /v1/verify — verify a message by id.
+   * Throws APIError with code "not_found" (404) if the message does not exist,
+   * or "missing_proof_data" (422) if it is not sealed yet.
+   */
+  async verify(messageId: string): Promise<VerifyResult> {
+    const { data } = await this.request<VerifyResult>("POST", "/v1/verify", {
+      body: { message_id: messageId },
+    });
+    return data;
   }
 
   async rates(days = 14): Promise<Record<string, unknown>> {

@@ -21,10 +21,21 @@ async function main() {
       to: process.env.MAILACK_TO ?? "you@example.com",
       subject: "mailack Node SDK example",
       text: "Hello from the Node.js SDK.",
+      certified: true, // omit to use the account default (default_certified)
     });
     console.log(
       `id=${message.id} state=${message.state} hash=${message.canonical_hash} replay=${replay}`
     );
+
+    // Seal the message into the Merkle tree, then fetch evidence and verify it.
+    const seal = await client.sealMessage(message.id as string);
+    console.log(`sealed: batch=${seal.batch_id} root=${seal.merkle_root} at=${seal.sealed_at}`);
+
+    const evidence = await client.getEvidence(message.id as string);
+    console.log(`evidence: leaf=${evidence.leaf_index} cert=${evidence.certificate_id}`);
+
+    const result = await client.verify(message.id as string);
+    console.log(`verify: valid=${result.valid}`);
   } catch (e) {
     if (e instanceof APIError) {
       console.error(`${e.code}: ${e.message}`);
