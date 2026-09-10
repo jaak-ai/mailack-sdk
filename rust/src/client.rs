@@ -88,18 +88,16 @@ impl Client {
     }
 
     async fn get_raw(&self, path: &str, header: &str) -> Result<(Vec<u8>, String)> {
-        let mut req = self.http.get(format!("{}{}", self.base_url, path));
-        if !self.api_key.is_empty() {
-            req = req.bearer_auth(&self.api_key);
-        }
-        let resp = req.send().await?;
-        let status = resp.status();
-        let hash = resp.headers().get(header).and_then(|v| v.to_str().ok()).unwrap_or("").to_owned();
-        let data = resp.bytes().await?.to_vec();
-        if !status.is_success() {
-            ensure_ok(status, &String::from_utf8_lossy(&data))?;
-        }
-        Ok((data, hash))
+        let (status, headers, text) = self
+            .request(Method::GET, path, None::<&()>, None, None)
+            .await?;
+        ensure_ok(status, &text)?;
+        let hash = headers
+            .get(header)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_owned();
+        Ok((text.into_bytes(), hash))
     }
 
     /// POST /v1/messages/{id}/seal — 422 `not_certified` on plain messages.
