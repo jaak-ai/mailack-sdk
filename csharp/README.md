@@ -93,3 +93,17 @@ export MAILACK_API_URL=http://localhost:8080
 export MAILACK_API_KEY=mlk_…
 dotnet run --project csharp/examples/SendExample
 ```
+
+## Descarga RAW
+
+```csharp
+var raw = await client.GetMessageRawAsync(result.Id!);
+await File.WriteAllBytesAsync("message.eml", raw.Data);
+Console.WriteLine(raw.CanonicalHash);
+var rawEvent = await client.GetEventRawAsync(result.Id!, "event-id");
+await File.WriteAllBytesAsync("event.raw", rawEvent.Data);
+Console.WriteLine(rawEvent.RawSHA256);
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

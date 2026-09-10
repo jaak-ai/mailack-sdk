@@ -112,3 +112,14 @@ node javascript/examples/send.js
 ## API key
 
 Scopes habituales: `messages:send`, `evidence:read`. El tenant lo resuelve el servidor a partir de la key.
+
+## Descarga RAW
+
+```javascript
+const { data, canonicalHash } = await client.getMessageRaw("message-id");
+const event = await client.getEventRaw("message-id", "event-id");
+console.log(data.byteLength, canonicalHash, event.rawSha256);
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

@@ -58,7 +58,7 @@ export class Client {
   /**
    * @param {string} method
    * @param {string} path
-   * @param {{ body?: unknown, idempotencyKey?: string, query?: Record<string, string> }} [opts]
+   * @param {{ body?: unknown, idempotencyKey?: string, query?: Record<string, string>, raw?: boolean }} [opts]
    */
   async #request(method, path, opts = {}) {
     let url = this.baseUrl + path;
@@ -68,7 +68,7 @@ export class Client {
     }
     /** @type {Record<string, string>} */
     const headers = {
-      Accept: 'application/json',
+      Accept: opts.raw ? '*/*' : 'application/json',
       'User-Agent': 'mailack-js/0.1.0',
     };
     if (opts.body !== undefined) {
@@ -87,6 +87,10 @@ export class Client {
       body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });
 
+    if (res.ok && opts.raw) {
+      const data = new Uint8Array(await res.arrayBuffer());
+      return { status: res.status, headers: res.headers, data };
+    }
     const text = await res.text();
     let data = null;
     if (text) {
@@ -156,6 +160,18 @@ export class Client {
   async getMessage(id) {
     const { data } = await this.#request('GET', `/v1/messages/${id}`);
     return data?.message ?? data;
+  }
+
+  async getMessageRaw(id) {
+    const { data, headers } = await this.#request("GET", `/v1/messages/${id}/raw`, { raw: true });
+    return { data, canonicalHash: headers.get("X-Mailack-Canonical-Hash") ?? "" };
+  }
+
+  async getEventRaw(messageId, eventId) {
+    const { data, headers } = await this.#request(
+      "GET", `/v1/messages/${messageId}/events/${eventId}/raw`, { raw: true }
+    );
+    return { data, rawSha256: headers.get("X-Mailack-Raw-SHA256") ?? "" };
   }
 
   /**

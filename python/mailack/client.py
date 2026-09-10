@@ -38,12 +38,13 @@ class Client:
         body: Any = None,
         idempotency_key: str = "",
         query: Optional[Mapping[str, str]] = None,
+        raw_response: bool = False,
     ) -> tuple[int, dict[str, str], Any]:
         url = self.base_url + path
         if query:
             url += "?" + urllib.parse.urlencode({k: v for k, v in query.items() if v is not None})
         data = None
-        headers = {"Accept": "application/json", "User-Agent": "mailack-python/0.1.0"}
+        headers = {"Accept": "*/*" if raw_response else "application/json", "User-Agent": "mailack-python/0.1.0"}
         if body is not None:
             data = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
@@ -57,7 +58,7 @@ class Client:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
                 raw = resp.read()
                 headers_out = {k.lower(): v for k, v in resp.headers.items()}
-                payload = json.loads(raw.decode("utf-8")) if raw else None
+                payload = raw if raw_response else (json.loads(raw.decode("utf-8")) if raw else None)
                 return resp.status, headers_out, payload
         except urllib.error.HTTPError as e:
             raw = e.read()
@@ -126,6 +127,16 @@ class Client:
     def get_message(self, message_id: str) -> dict[str, Any]:
         _, _, payload = self._request("GET", f"/v1/messages/{message_id}")
         return payload.get("message") or payload
+
+    def get_message_raw(self, message_id: str) -> tuple[bytes, str]:
+        _, headers, data = self._request("GET", f"/v1/messages/{message_id}/raw", raw_response=True)
+        return data, headers.get("x-mailack-canonical-hash", "")
+
+    def get_event_raw(self, message_id: str, event_id: str) -> tuple[bytes, str]:
+        _, headers, data = self._request(
+            "GET", f"/v1/messages/{message_id}/events/{event_id}/raw", raw_response=True
+        )
+        return data, headers.get("x-mailack-raw-sha256", "")
 
     def seal_message(self, message_id: str) -> dict[str, Any]:
         """POST /v1/messages/{id}/seal → seal receipt (canonical_hash,

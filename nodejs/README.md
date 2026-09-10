@@ -101,3 +101,14 @@ export MAILACK_API_URL=http://localhost:8080
 export MAILACK_API_KEY=mlk_…
 npx tsx examples/send.ts
 ```
+
+## Descarga RAW
+
+```javascript
+const { data, canonicalHash } = await client.getMessageRaw("message-id");
+const event = await client.getEventRaw("message-id", "event-id");
+console.log(data.byteLength, canonicalHash, event.rawSha256);
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

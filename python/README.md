@@ -97,3 +97,13 @@ API key Bearer (`messages:send`, `evidence:read`, …). El tenant se resuelve en
 ## Contrato
 
 El contrato canónico es el OpenAPI publicado de Mailack; el SDK de Go en [`../go`](../go/) expone el mismo modelo.
+
+## Descarga RAW
+
+```python
+data, canonical_hash = client.get_message_raw("message-id")
+data, raw_sha256 = client.get_event_raw("message-id", "event-id")
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

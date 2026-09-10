@@ -94,3 +94,7 @@ public sealed class VerifyResult
     [JsonPropertyName("sealed_at")]
     public string? SealedAt { get; init; }
 }
+
+public sealed record MessageRaw(byte[] Data, string CanonicalHash);
+
+public sealed record EventRaw(byte[] Data, string RawSHA256);
