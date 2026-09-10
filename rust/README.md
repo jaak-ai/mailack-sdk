@@ -136,3 +136,16 @@ API key Bearer (`messages:send`, `evidence:read`, …). El tenant se resuelve en
 ## Dependencias
 
 - `reqwest` (rustls) + `serde` / `serde_json` + `thiserror`
+
+## Descarga RAW
+
+```rust
+let raw = client.get_message_raw("message-id").await?;
+std::fs::write("message.eml", &raw.data)?;
+println!("{}", raw.canonical_hash);
+let event = client.get_event_raw("message-id", "event-id").await?;
+println!("{}", event.raw_sha256);
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

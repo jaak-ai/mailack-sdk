@@ -30,3 +30,17 @@ go test ./sdk/
 ```
 
 Ver también el índice general: [README.md](README.md).
+
+## Descarga RAW
+
+```go
+raw, err := client.GetMessageRaw(ctx, "message-id")
+if err != nil { return err }
+fmt.Println(raw.CanonicalHash, len(raw.Data))
+event, err := client.GetEventRaw(ctx, "message-id", "event-id")
+if err != nil { return err }
+fmt.Println(event.RawSHA256, len(event.Data))
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

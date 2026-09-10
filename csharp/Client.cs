@@ -40,6 +40,29 @@ public sealed class Client : IDisposable
         _http.DefaultRequestHeaders.UserAgent.ParseAdd("mailack-csharp/0.1.0");
     }
 
+    public async Task<MessageRaw> GetMessageRawAsync(string id, CancellationToken ct = default)
+    {
+        var (data, hash) = await GetRawAsync($"v1/messages/{id}/raw", "X-Mailack-Canonical-Hash", ct).ConfigureAwait(false);
+        return new MessageRaw(data, hash);
+    }
+
+    public async Task<EventRaw> GetEventRawAsync(string messageId, string eventId, CancellationToken ct = default)
+    {
+        var (data, hash) = await GetRawAsync($"v1/messages/{messageId}/events/{eventId}/raw", "X-Mailack-Raw-SHA256", ct).ConfigureAwait(false);
+        return new EventRaw(data, hash);
+    }
+
+    private async Task<(byte[] Data, string Hash)> GetRawAsync(string path, string header, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, path);
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("*/*"));
+        using var resp = await _http.SendAsync(request, ct).ConfigureAwait(false);
+        await EnsureSuccessAsync(resp, ct).ConfigureAwait(false);
+        var data = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
+        var hash = resp.Headers.TryGetValues(header, out var values) ? values.FirstOrDefault() ?? "" : "";
+        return (data, hash);
+    }
+
     public async Task<SendResult> SendAsync(string idempotencyKey, SendRequest req, CancellationToken ct = default)
     {
         using var msg = new HttpRequestMessage(HttpMethod.Post, "v1/messages");

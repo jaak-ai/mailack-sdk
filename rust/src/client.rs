@@ -37,7 +37,7 @@ impl Client {
 
     /// POST /v1/messages — returns `(message, replay)`.
     pub async fn send(&self, idempotency_key: &str, req: &SendRequest) -> Result<(Message, bool)> {
-        let (status, headers, body) = self
+        let (status, headers, body, _) = self
             .request(Method::POST, "/v1/messages", Some(req), Some(idempotency_key), None)
             .await?;
         ensure_ok(status, &body)?;
@@ -71,6 +71,33 @@ impl Client {
         let path = format!("/v1/messages/{id}");
         let wrap: MessageWrap = self.get_json(Method::GET, &path, None::<&()>, None, None).await?;
         Ok(wrap.message)
+    }
+
+    pub async fn get_message_raw(&self, id: &str) -> Result<MessageRaw> {
+        let (data, canonical_hash) = self.get_raw(
+            &format!("/v1/messages/{id}/raw"), "X-Mailack-Canonical-Hash"
+        ).await?;
+        Ok(MessageRaw { data, canonical_hash })
+    }
+
+    pub async fn get_event_raw(&self, message_id: &str, event_id: &str) -> Result<EventRaw> {
+        let (data, raw_sha256) = self.get_raw(
+            &format!("/v1/messages/{message_id}/events/{event_id}/raw"), "X-Mailack-Raw-SHA256"
+        ).await?;
+        Ok(EventRaw { data, raw_sha256 })
+    }
+
+    async fn get_raw(&self, path: &str, header: &str) -> Result<(Vec<u8>, String)> {
+        let (status, headers, text, data) = self
+            .request(Method::GET, path, None::<&()>, None, None)
+            .await?;
+        ensure_ok(status, &text)?;
+        let hash = headers
+            .get(header)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("")
+            .to_owned();
+        Ok((data, hash))
     }
 
     /// POST /v1/messages/{id}/seal — 422 `not_certified` on plain messages.
@@ -193,7 +220,7 @@ impl Client {
     /// DELETE /v1/webhooks/{id}
     pub async fn disable_webhook(&self, id: &str) -> Result<()> {
         let path = format!("/v1/webhooks/{id}");
-        let (status, _, body) = self
+        let (status, _, body, _) = self
             .request(Method::DELETE, &path, None::<&()>, None, None)
             .await?;
         ensure_ok(status, &body)?;
@@ -246,7 +273,7 @@ impl Client {
         idempotency_key: Option<&str>,
         query: Option<&[(&str, String)]>,
     ) -> Result<T> {
-        let (status, _, text) = self
+        let (status, _, text, _) = self
             .request(method, path, body, idempotency_key, query)
             .await?;
         ensure_ok(status, &text)?;
@@ -260,7 +287,7 @@ impl Client {
         body: Option<&B>,
         idempotency_key: Option<&str>,
         query: Option<&[(&str, String)]>,
-    ) -> Result<(StatusCode, HeaderMap, String)> {
+    ) -> Result<(StatusCode, HeaderMap, String, Vec<u8>)> {
         let mut url = format!("{}{}", self.base_url, path);
         if let Some(q) = query {
             let mut first = true;
@@ -286,8 +313,9 @@ impl Client {
         let resp = req.send().await?;
         let status = resp.status();
         let headers = resp.headers().clone();
-        let text = resp.text().await?;
-        Ok((status, headers, text))
+        let data = resp.bytes().await?.to_vec();
+        let text = String::from_utf8_lossy(&data).into_owned();
+        Ok((status, headers, text, data))
     }
 }
 

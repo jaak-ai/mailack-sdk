@@ -157,11 +157,23 @@ public final class Client {
     return request("POST", "/v1/templates", body, null, null).json.getAsJsonObject();
   }
 
+  public MessageRaw getMessageRaw(String id) throws APIError, IOException {
+    HttpResult r = request("GET", "/v1/messages/" + id + "/raw", null, null, null, true);
+    return new MessageRaw(r.data, r.headers.getOrDefault("X-Mailack-Canonical-Hash", ""));
+  }
+
+  public EventRaw getEventRaw(String messageId, String eventId) throws APIError, IOException {
+    HttpResult r = request("GET", "/v1/messages/" + messageId + "/events/" + eventId + "/raw", null, null, null, true);
+    return new EventRaw(r.data, r.headers.getOrDefault("X-Mailack-Raw-SHA256", ""));
+  }
+
   private static final class HttpResult {
+    final byte[] data;
     final JsonElement json;
     final Map<String, String> headers;
 
-    HttpResult(JsonElement json, Map<String, String> headers) {
+    HttpResult(JsonElement json, Map<String, String> headers, byte[] data) {
+      this.data = data;
       this.json = json;
       this.headers = headers;
     }
@@ -174,6 +186,11 @@ public final class Client {
       String idempotencyKey,
       Map<String, String> query)
       throws APIError, IOException {
+    return request(method, path, body, idempotencyKey, query, false);
+  }
+
+  private HttpResult request(String method, String path, Object body, String idempotencyKey,
+      Map<String, String> query, boolean rawResponse) throws APIError, IOException {
     String url = baseUrl + path;
     if (query != null && !query.isEmpty()) {
       StringBuilder sb = new StringBuilder(url).append('?');
@@ -192,7 +209,7 @@ public final class Client {
     conn.setRequestMethod(method);
     conn.setConnectTimeout(timeoutMs);
     conn.setReadTimeout(timeoutMs);
-    conn.setRequestProperty("Accept", "application/json");
+    conn.setRequestProperty("Accept", rawResponse ? "*/*" : "application/json");
     conn.setRequestProperty("User-Agent", "mailack-java/0.1.0");
     if (apiKey != null && !apiKey.isEmpty()) {
       conn.setRequestProperty("Authorization", "Bearer " + apiKey);
@@ -211,14 +228,19 @@ public final class Client {
 
     int status = conn.getResponseCode();
     InputStream stream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
-    String raw = stream == null ? "" : new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-    Map<String, String> hdrs = new java.util.HashMap<>();
+    byte[] data;
+    try (InputStream input = stream) {
+      data = input == null ? new byte[0] : input.readAllBytes();
+    }
+    String raw = rawResponse && status >= 200 && status < 300 ? "" : new String(data, StandardCharsets.UTF_8);
+    Map<String, String> hdrs = new java.util.TreeMap<>(String.CASE_INSENSITIVE_ORDER);
     for (Map.Entry<String, List<String>> e : conn.getHeaderFields().entrySet()) {
       if (e.getKey() != null && e.getValue() != null && !e.getValue().isEmpty()) {
         hdrs.put(e.getKey(), e.getValue().get(0));
       }
     }
 
+    conn.disconnect();
     if (status < 200 || status >= 300) {
       String code = "http_error";
       String message = raw;
@@ -235,6 +257,6 @@ public final class Client {
       throw new APIError(status, code, message);
     }
     JsonElement json = raw.isEmpty() ? new JsonObject() : JsonParser.parseString(raw);
-    return new HttpResult(json, hdrs);
+    return new HttpResult(json, hdrs, data);
   }
 }

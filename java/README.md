@@ -97,3 +97,17 @@ mvn -f java/pom.xml -q exec:java \
 ```
 
 (O compile y ejecute `examples/SendExample.java` con el classpath de Gson.)
+
+## Descarga RAW
+
+```java
+MessageRaw raw = client.getMessageRaw(r.id());
+java.nio.file.Files.write(java.nio.file.Path.of("message.eml"), raw.data());
+System.out.println(raw.canonicalHash());
+EventRaw event = client.getEventRaw(r.id(), "event-id");
+java.nio.file.Files.write(java.nio.file.Path.of("event.raw"), event.data());
+System.out.println(event.rawSha256());
+```
+
+El cuerpo se conserva como bytes. El hash procede de `X-Mailack-Canonical-Hash`
+para mensajes y `X-Mailack-Raw-SHA256` para eventos; si falta, se devuelve una cadena vacía.

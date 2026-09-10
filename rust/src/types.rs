@@ -308,3 +308,15 @@ pub(crate) struct ApiErrorInner {
     #[serde(default)]
     pub message: String,
 }
+
+#[derive(Debug, Clone)]
+pub struct MessageRaw {
+    pub data: Vec<u8>,
+    pub canonical_hash: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct EventRaw {
+    pub data: Vec<u8>,
+    pub raw_sha256: String,
+}
