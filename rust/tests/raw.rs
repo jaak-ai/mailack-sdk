@@ -22,7 +22,7 @@ async fn raw_downloads() {
                 assert!(request.starts_with(&format!("GET {path} HTTP/1.1")));
                 assert!(request.to_lowercase().contains("authorization: bearer test"));
                 let header = if event { "x-mailack-raw-sha256" } else { "x-mailack-canonical-hash" };
-                let body: &[u8] = if status == 200 { b"From: a@b\r\n\r\nraw" } else { br#"{"error":{"code":"not_found","message":"missing"}}"# };
+                let body: &[u8] = if status == 200 { &[0, 255, 13, 10, 128] } else { br#"{"error":{"code":"not_found","message":"missing"}}"# };
                 write!(stream, "HTTP/1.1 {status} OK\r\n{header}: digest\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).unwrap();
                 stream.write_all(body).unwrap();
             });
@@ -33,7 +33,7 @@ async fn raw_downloads() {
                 client.get_message_raw("m").await.map(|r| (r.data, r.canonical_hash))
             };
             server.join().unwrap();
-            if status == 200 { assert_eq!(result.unwrap(), (b"From: a@b\r\n\r\nraw".to_vec(), "digest".into())); }
+            if status == 200 { assert_eq!(result.unwrap(), (vec![0, 255, 13, 10, 128], "digest".into())); }
             else { assert!(result.unwrap_err().is_code("not_found")); }
         }
     }
