@@ -49,7 +49,7 @@ go run ./sdk/examples/send
 go test ./sdk/
 ```
 
-Ver también el índice general: [README.md](README.md).
+Ver también el índice general: [README.md](../README.md).
 
 ## Descarga RAW
 
