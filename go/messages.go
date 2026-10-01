@@ -2,10 +2,31 @@ package mailack
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"time"
 )
+
+// Attachment is a file sent with POST /v1/messages. Content is standard
+// base64 (not base64url). Empty ContentType is treated by the API as
+// application/octet-stream. The API accepts at most 25 attachments; the real
+// bound is the assembled message size (25 MiB).
+type Attachment struct {
+	Filename    string `json:"filename"`
+	ContentType string `json:"content_type,omitempty"`
+	Content     string `json:"content"`
+}
+
+// NewAttachment builds an Attachment from raw bytes, encoding Content as
+// standard base64.
+func NewAttachment(filename, contentType string, data []byte) Attachment {
+	return Attachment{
+		Filename:    filename,
+		ContentType: contentType,
+		Content:     base64.StdEncoding.EncodeToString(data),
+	}
+}
 
 // SendRequest is the JSON form of POST /v1/messages.
 type SendRequest struct {
@@ -17,6 +38,10 @@ type SendRequest struct {
 	Headers    map[string]string `json:"headers,omitempty"`
 	TemplateID string            `json:"template_id,omitempty"`
 	Variables  map[string]string `json:"variables,omitempty"`
+	// Attachments are inlined into the message (base64 Content). Max 25;
+	// overall size is bounded by the assembled message limit. The API has no
+	// Cc/Bcc. Not supported on SendBatch.
+	Attachments []Attachment `json:"attachments,omitempty"`
 	// Certified requests certified delivery; omit to use the account default
 	// (default_certified); plain messages (certified=false) cannot be sealed.
 	Certified *bool `json:"certified,omitempty"`

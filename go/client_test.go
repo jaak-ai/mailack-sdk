@@ -3,6 +3,7 @@ package mailack_test
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -49,6 +50,63 @@ func TestSendAndRates(t *testing.T) {
 	rates, err := c.Rates(context.Background(), 7)
 	require.NoError(t, err)
 	require.Equal(t, float64(80), rates.DeliveryRate)
+}
+
+func TestSendAttachmentsJSON(t *testing.T) {
+	var sawBody map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/v1/messages", r.URL.Path)
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&sawBody))
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "11111111-1111-1111-1111-111111111111", "state": "queued",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := mailack.NewClient(srv.URL, mailack.WithAPIKey("mlk_test"))
+	pdfB64 := "JVBERi0xLjQK" // "%PDF-1.4\n" in standard base64
+	_, _, err := c.Send(context.Background(), "att-1", mailack.SendRequest{
+		From: "a@x.com", To: "b@y.com", Subject: "signed", Text: "body",
+		Attachments: []mailack.Attachment{{
+			Filename:    "documento.pdf",
+			ContentType: "application/pdf",
+			Content:     pdfB64,
+		}},
+	})
+	require.NoError(t, err)
+	atts, ok := sawBody["attachments"].([]any)
+	require.True(t, ok, "attachments must be present in JSON body")
+	require.Len(t, atts, 1)
+	att := atts[0].(map[string]any)
+	require.Equal(t, "documento.pdf", att["filename"])
+	require.Equal(t, "application/pdf", att["content_type"])
+	require.Equal(t, pdfB64, att["content"])
+}
+
+func TestNewAttachmentEncodesStandardBase64(t *testing.T) {
+	att := mailack.NewAttachment("x.pdf", "application/pdf", []byte("%PDF-1.4\n"))
+	require.Equal(t, "x.pdf", att.Filename)
+	require.Equal(t, "application/pdf", att.ContentType)
+	require.Equal(t, "JVBERi0xLjQK", att.Content)
+}
+
+func TestSendOmitsAttachmentsWhenEmpty(t *testing.T) {
+	var raw []byte
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ = io.ReadAll(r.Body)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"id": "11111111-1111-1111-1111-111111111111", "state": "queued",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	c := mailack.NewClient(srv.URL, mailack.WithAPIKey("mlk_test"))
+	_, _, err := c.Send(context.Background(), "no-att", mailack.SendRequest{
+		From: "a@x.com", To: "b@y.com", Text: "t",
+	})
+	require.NoError(t, err)
+	require.NotContains(t, string(raw), `"attachments"`)
 }
 
 func TestAPIError(t *testing.T) {
