@@ -17,5 +17,5 @@
 // Authentication: set WithAPIKey (Bearer). The X-Tenant-ID header is derived
 // from the key on the server; do not pass tenant IDs from the client.
 //
-// See sdk/README.md and the examples/ directory for fuller walkthroughs.
+// See README.md and the examples/ directory for fuller walkthroughs.
 package mailack
